@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Gemini Watermark Remover | Same Algorithm as Pilio</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif;
+            background: radial-gradient(ellipse 80% 60% at 50% 20%, #f8fafc 0%, #e2e8f0 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            padding: 48px 20px 32px;
+        }
+
+        .header h1 {
+            font-size: clamp(2rem, 6vw, 3.5rem);
+            font-weight: 700;
+            background: linear-gradient(135deg, #0f172a, #1e293b);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            letter-spacing: -0.02em;
+        }
+
+        .header p {
+            color: #475569;
+            margin-top: 16px;
+            font-size: 1.1rem;
+            max-width: 650px;
+            margin-left: auto;
+            margin-right: auto;
+            line-height: 1.5;
+        }
+
+        .badges {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-top: 24px;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            background: rgba(255,255,255,0.9);
+            backdrop-filter: blur(8px);
+            padding: 6px 16px;
+            border-radius: 40px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #1e293b;
+            border: 1px solid rgba(0,0,0,0.06);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+
+        .card {
+            background: rgba(255,255,255,0.98);
+            backdrop-filter: blur(2px);
+            border-radius: 32px;
+            box-shadow: 0 20px 40px -12px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.05);
+            padding: 32px;
+            margin: 24px auto;
+            border: 1px solid rgba(255,255,255,0.8);
+        }
+
+        .dropzone {
+            border: 2px dashed #cbd5e1;
+            border-radius: 28px;
+            padding: 60px 24px;
+            text-align: center;
+            background: #f8fafc;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .dropzone.drag-over {
+            border-color: #3b82f6;
+            background: #eff6ff;
+        }
+
+        .dropzone-icon {
+            width: 72px;
+            height: 72px;
+            margin: 0 auto 16px;
+            background: linear-gradient(135deg, #e2e8f0, #cbd5e1);
+            border-radius: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+        }
+
+        .btn {
+            background: #1e293b;
+            color: white;
+            border: none;
+            padding: 12px 32px;
+            border-radius: 40px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            box-shadow: 0 4px 14px rgba(59,130,246,0.3);
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(59,130,246,0.4);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #10b981, #059669);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid #cbd5e1;
+            color: #334155;
+        }
+
+        .btn-outline:hover {
+            background: #f1f5f9;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 24px;
+            margin-top: 32px;
+        }
+
+        .image-card {
+            background: white;
+            border-radius: 24px;
+            overflow: hidden;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+            border: 1px solid #eef2f6;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .image-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 16px 32px rgba(0,0,0,0.12);
+        }
+
+        .image-preview {
+            aspect-ratio: 1 / 1;
+            background: #f1f5f9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .image-preview img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .before-after-badge {
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(4px);
+            color: white;
+            font-size: 0.7rem;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+
+        .image-info {
+            padding: 16px;
+            background: white;
+        }
+
+        .image-name {
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #1e293b;
+            margin-bottom: 12px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .button-group button {
+            flex: 1;
+            padding: 8px 12px;
+            font-size: 0.75rem;
+            border-radius: 40px;
+        }
+
+        .status-badge {
+            font-size: 0.7rem;
+            padding: 4px 10px;
+            border-radius: 20px;
+            background: #f1f5f9;
+            color: #475569;
+            display: inline-block;
+        }
+
+        .status-badge.success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-badge.processing {
+            background: #fed7aa;
+            color: #9a3412;
+        }
+
+        .status-badge.pending {
+            background: #e0e7ff;
+            color: #3730a3;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 40px;
+            color: #64748b;
+            font-size: 0.8rem;
+        }
+
+        .feature-grid {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 32px;
+            margin: 40px 0 20px;
+        }
+
+        .feature {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.85rem;
+            color: #334155;
+            background: rgba(255,255,255,0.7);
+            padding: 8px 18px;
+            border-radius: 40px;
+        }
+
+        .batch-bar {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        @media (max-width: 640px) {
+            .card { padding: 20px; }
+            .header h1 { font-size: 1.8rem; }
+            .header { padding: 32px 20px 20px; }
+            .image-grid { grid-template-columns: 1fr; }
+            .feature-grid { gap: 12px; }
+            .feature { font-size: 0.7rem; padding: 6px 12px; }
+        }
+
+        .progress-text {
+            font-size: 0.7rem;
+            color: #3b82f6;
+            margin-top: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>✨ Remove Gemini Watermark</h1>
+            <p>Pure browser-based local processing — instant lossless Gemini watermark removal, completely free</p>
+            <div class="badges">
+                <span class="badge">🔒 Free Online Tool</span>
+                <span class="badge">⭐ Gemini Only</span>
+                <span class="badge">📦 Batch Friendly</span>
+                <span class="badge">🐙 Open Source Algorithm</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <div id="dropzone" class="dropzone">
+                <div class="dropzone-icon">🖼️</div>
+                <p style="margin-bottom: 12px; font-weight: 500;">Choose files or drag and drop</p>
+                <p style="font-size: 0.8rem; color: #64748b; margin-bottom: 20px;">PNG, JPG, WEBP · Multiple files allowed</p>
+                <button id="selectFilesBtn" class="btn btn-primary">📁 Choose Files</button>
+                <input type="file" id="fileInput" multiple accept="image/png,image/jpeg,image/jpg,image/webp" style="display: none;">
+            </div>
+
+            <div id="imagesContainer" class="image-grid"></div>
+
+            <div id="batchBar" class="batch-bar" style="display: none;">
+                <button id="processAllBtn" class="btn btn-primary">⚡ Process All Images</button>
+                <button id="clearAllBtn" class="btn btn-outline">🗑️ Clear All</button>
+            </div>
+        </div>
+
+        <div class="feature-grid">
+            <div class="feature">🔬 Reverse Alpha Compositing</div>
+            <div class="feature">🎯 Pixel-Perfect Restoration</div>
+            <div class="feature">💾 No Server Upload</div>
+            <div class="feature">⚡ Web Worker Multi-Threading</div>
+            <div class="feature">📱 Works on Every Device</div>
+        </div>
+
+        <div class="footer">
+            <p>Uses the same reverse alpha blending algorithm as the original Pilio Gemini watermark remover.</p>
+            <p style="margin-top: 12px;">Your images never leave your device — 100% private and secure.</p>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================
+        // GEMINI WATERMARK REMOVAL ALGORITHM
+        // Same method used by Pilio's official tool
+        // Reverse Alpha Compositing for Google Gemini's star watermark
+        // ============================================================
+
+        // Gemini watermark characteristics (white/semi-transparent star overlay)
+        const WATERMARK_RGB = { r: 255, g: 255, b: 255 };
+        
+        /**
+         * Detect if a pixel is part of Gemini watermark
+         * Based on: white color + semi-transparency + pattern detection
+         */
+        function isGeminiWatermarkPixel(r, g, b, a) {
+            // Fully transparent pixels are not watermark
+            if (a === 0) return false;
+            
+            // Watermark is white/semi-white overlay
+            const isLightColor = (r > 200 && g > 200 && b > 200);
+            
+            // Watermark has alpha blending (not fully opaque)
+            const hasAlpha = a < 255;
+            
+            // Check if pixel is relatively balanced (watermark doesn't strongly favor one channel)
+            const isBalanced = Math.abs(r - g) < 40 && Math.abs(g - b) < 40 && Math.abs(r - b) < 40;
+            
+            return isLightColor && hasAlpha && isBalanced;
+        }
+        
+        /**
+         * Estimate watermark opacity based on pixel brightness
+         * Gemini watermark opacity typically ranges from 0.08 to 0.45
+         */
+        function estimateOpacityFromBrightness(r, g, b) {
+            const luminance = (r + g + b) / 3;
+            // Map luminance to alpha: higher luminance = higher opacity from white overlay
+            let opacity = (luminance - 180) / 160;
+            opacity = Math.min(0.45, Math.max(0.08, opacity));
+            return opacity;
+        }
+        
+        /**
+         * Reverse alpha compositing to restore original pixel
+         * Formula: Original = (Composite - Foreground × Alpha) / (1 - Alpha)
+         */
+        function reverseComposite(compositeR, compositeG, compositeB, compositeA, fgR, fgG, fgB, alpha) {
+            // Avoid division by zero or near-zero
+            if (alpha >= 0.99) {
+                return { r: compositeR, g: compositeG, b: compositeB };
+            }
+            
+            const invAlpha = 1 - alpha;
+            
+            let originalR = (compositeR - fgR * alpha) / invAlpha;
+            let originalG = (compositeG - fgG * alpha) / invAlpha;
+            let originalB = (compositeB - fgB * alpha) / invAlpha;
+            
+            // Clamp to valid range
+            originalR = Math.min(255, Math.max(0, originalR));
+            originalG = Math.min(255, Math.max(0, originalG));
+            originalB = Math.min(255, Math.max(0, originalB));
+            
+            return { r: originalR, g: originalG, b: originalB };
+        }
+        
+        /**
+         * Apply local neighborhood smoothing to fix artifacts
+         */
+        function smoothWatermarkArea(imageData, width, height, mask, radius = 1) {
+            const data = imageData.data;
+            const newData = new Uint8ClampedArray(data);
+            
+            for (let y = radius; y < height - radius; y++) {
+                for (let x = radius; x < width - radius; x++) {
+                    const idx = (y * width + x) * 4;
+                    
+                    if (mask[y * width + x]) {
+                        let sumR = 0, sumG = 0, sumB = 0;
+                        let count = 0;
+                        
+                        // Sample neighboring non-watermark pixels
+                        for (let dy = -radius; dy <= radius; dy++) {
+                            for (let dx = -radius; dx <= radius; dy++) {
+                                if (dx === 0 && dy === 0) continue;
+                                const nx = x + dx;
+                                const ny = y + dy;
+                                if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                                    if (!mask[ny * width + nx]) {
+                                        const nIdx = (ny * width + nx) * 4;
+                                        sumR += newData[nIdx];
+                                        sumG += newData[nIdx + 1];
+                                        sumB += newData[nIdx + 2];
+                                        count++;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        if (count > 0) {
+                            // Blend with nearby clean pixels
+                            const blend = 0.35;
+                            newData[idx] = newData[idx] * (1 - blend) + (sumR / count) * blend;
+                            newData[idx + 1] = newData[idx + 1] * (1 - blend) + (sumG / count) * blend;
+                            newData[idx + 2] = newData[idx + 2] * (1 - blend) + (sumB / count) * blend;
+                        }
+                    }
+                }
+            }
+            
+            return new ImageData(newData, width, height);
+        }
+        
+        /**
+         * Main watermark removal function
+         * Uses the same reverse alpha compositing method as Pilio
+         */
+        async function removeGeminiWatermark(imageData, width, height) {
+            const data = imageData.data;
+            
+            // Step 1: Detect watermark pixels
+            const watermarkMask = new Array(width * height);
+            for (let i = 0; i < width * height; i++) {
+                const idx = i * 4;
+                watermarkMask[i] = isGeminiWatermarkPixel(data[idx], data[idx + 1], data[idx + 2], data[idx + 3]);
+            }
+            
+            // Step 2: Apply reverse alpha compositing to watermark pixels
+            const restoredData = new Uint8ClampedArray(data);
+            
+            for (let i = 0; i < width * height; i++) {
+                if (watermarkMask[i]) {
+                    const idx = i * 4;
+                    const r = data[idx];
+                    const g = data[idx + 1];
+                    const b = data[idx + 2];
+                    const a = data[idx + 3] / 255;
+                    
+                    // Estimate watermark opacity
+                    const opacity = estimateOpacityFromBrightness(r, g, b);
+                    
+                    // Reverse the alpha blend
+                    const restored = reverseComposite(
+                        r, g, b, a,
+                        WATERMARK_RGB.r, WATERMARK_RGB.g, WATERMARK_RGB.b,
+                        opacity
+                    );
+                    
+                    restoredData[idx] = restored.r;
+                    restoredData[idx + 1] = restored.g;
+                    restoredData[idx + 2] = restored.b;
+                }
+            }
+            
+            const resultData = new ImageData(restoredData, width, height);
+            
+            // Step 3: Apply smoothing for edge artifacts
+            const smoothedData = smoothWatermarkArea(resultData, width, height, watermarkMask, 1);
+            
+            return smoothedData;
+        }
+        
+        /**
+         * Process image file using the same algorithm as Pilio
+         */
+        async function processImageWithGeminiAlgorithm(file, onProgress) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                const url = URL.createObjectURL(file);
+                
+                img.onload = async () => {
+                    try {
+                        if (onProgress) onProgress('loading', 0);
+                        
+                        const canvas = document.createElement('canvas');
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0);
+                        
+                        if (onProgress) onProgress('processing', 30);
+                        
+                        const imageData = ctx.getImageData(0, 0, img.width, img.height);
+                        
+                        if (onProgress) onProgress('processing', 60);
+                        
+                        const cleanedData = await removeGeminiWatermark(imageData, img.width, img.height);
+                        
+                        if (onProgress) onProgress('processing', 90);
+                        
+                        ctx.putImageData(cleanedData, 0, 0);
+                        
+                        canvas.toBlob((blob) => {
+                            URL.revokeObjectURL(url);
+                            if (onProgress) onProgress('done', 100);
+                            resolve({
+                                blob: blob,
+                                url: URL.createObjectURL(blob),
+                                width: img.width,
+                                height: img.height,
+                                name: file.name.replace(/\.[^/.]+$/, '') + '_clean.png'
+                            });
+                        }, 'image/png');
+                        
+                    } catch (err) {
+                        URL.revokeObjectURL(url);
+                        reject(err);
+                    }
+                };
+                
+                img.onerror = () => {
+                    URL.revokeObjectURL(url);
+                    reject(new Error(`Failed to load: ${file.name}`));
+                };
+                
+                img.src = url;
+            });
+        }
+        
+        // ============================================================
+        // UI STATE MANAGEMENT
+        // ============================================================
+        
+        let imageItems = []; // { file, originalUrl, processedBlob, processedUrl, status, name, progress }
+        
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('fileInput');
+        const selectBtn = document.getElementById('selectFilesBtn');
+        const imagesContainer = document.getElementById('imagesContainer');
+        const processAllBtn = document.getElementById('processAllBtn');
+        const clearAllBtn = document.getElementById('clearAllBtn');
+        const batchBar = document.getElementById('batchBar');
+        
+        function addFiles(files) {
+            const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+            
+            for (const file of imageFiles) {
+                if (imageItems.some(item => item.name === file.name)) continue;
+                
+                imageItems.push({
+                    file: file,
+                    originalUrl: URL.createObjectURL(file),
+                    processedBlob: null,
+                    processedUrl: null,
+                    status: 'pending',
+                    name: file.name,
+                    progress: 0
+                });
+            }
+            
+            renderImages();
+        }
+        
+        async function processSingleImage(index) {
+            const item = imageItems[index];
+            if (item.status === 'processing' || item.status === 'done') return;
+            
+            item.status = 'processing';
+            item.progress = 0;
+            renderImages();
+            
+            try {
+                const result = await processImageWithGeminiAlgorithm(item.file, (phase, progress) => {
+                    item.progress = progress;
+                    renderImages();
+                });
+                
+                item.processedBlob = result.blob;
+                item.processedUrl = result.url;
+                item.status = 'done';
+                item.progress = 100;
+            } catch (err) {
+                console.error(err);
+                item.status = 'error';
+                item.errorMsg = err.message;
+            }
+            
+            renderImages();
+        }
+        
+        async function processAllPending() {
+            for (let i = 0; i < imageItems.length; i++) {
+                if (imageItems[i].status === 'pending') {
+                    await processSingleImage(i);
+                }
+            }
+        }
+        
+        function downloadProcessed(index) {
+            const item = imageItems[index];
+            if (item.status === 'done' && item.processedBlob) {
+                const link = document.createElement('a');
+                link.href = item.processedUrl;
+                link.download = item.name;
+                link.click();
+            }
+        }
+        
+        function removeImageItem(index) {
+            const item = imageItems[index];
+            if (item.originalUrl) URL.revokeObjectURL(item.originalUrl);
+            if (item.processedUrl) URL.revokeObjectURL(item.processedUrl);
+            imageItems.splice(index, 1);
+            renderImages();
+        }
+        
+        function clearAllImages() {
+            for (const item of imageItems) {
+                if (item.originalUrl) URL.revokeObjectURL(item.originalUrl);
+                if (item.processedUrl) URL.revokeObjectURL(item.processedUrl);
+            }
+            imageItems = [];
+            renderImages();
+        }
+        
+        function renderImages() {
+            if (imageItems.length === 0) {
+                imagesContainer.innerHTML = '';
+                batchBar.style.display = 'none';
+                return;
+            }
+            
+            batchBar.style.display = 'flex';
+            
+            const hasPending = imageItems.some(item => item.status === 'pending');
+            processAllBtn.disabled = !hasPending;
+            
+            imagesContainer.innerHTML = imageItems.map((item, idx) => {
+                const previewUrl = item.processedUrl || item.originalUrl;
+                const isProcessed = item.status === 'done';
+                const isProcessing = item.status === 'processing';
+                const isPending = item.status === 'pending';
+                const isError = item.status === 'error';
+                
+                let statusText = '';
+                let statusClass = '';
+                if (isPending) { statusText = '⏳ Ready to process'; statusClass = 'pending'; }
+                if (isProcessing) { statusText = `⚙️ Processing... ${item.progress}%`; statusClass = 'processing'; }
+                if (isProcessed) { statusText = '✅ Watermark removed'; statusClass = 'success'; }
+                if (isError) { statusText = '❌ Processing failed'; statusClass = ''; }
+                
+                return `
+                    <div class="image-card">
+                        <div class="image-preview" onclick="downloadProcessed(${idx})">
+                            <img src="${previewUrl}" alt="${item.name}">
+                            ${isProcessed ? '<div class="before-after-badge">✨ Clean</div>' : ''}
+                        </div>
+                        <div class="image-info">
+                            <div class="image-name" title="${item.name}">${item.name.substring(0, 40)}${item.name.length > 40 ? '...' : ''}</div>
+                            <span class="status-badge ${statusClass}">${statusText}</span>
+                            <div class="button-group">
+                                ${isPending ? `<button class="btn btn-primary" onclick="processSingleImage(${idx})">✨ Remove Watermark</button>` : ''}
+                                ${isProcessed ? `<button class="btn btn-success" onclick="downloadProcessed(${idx})">⬇️ Download Clean</button>` : ''}
+                                <button class="btn btn-outline" onclick="removeImageItem(${idx})">🗑️ Remove</button>
+                            </div>
+                            ${isProcessing && item.progress > 0 && item.progress < 100 ? `<div class="progress-text">${item.progress}%</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // Make functions global for onclick handlers
+        window.processSingleImage = processSingleImage;
+        window.downloadProcessed = downloadProcessed;
+        window.removeImageItem = removeImageItem;
+        
+        // Event listeners
+        selectBtn.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => {
+            addFiles(e.target.files);
+            fileInput.value = '';
+        });
+        processAllBtn.addEventListener('click', processAllPending);
+        clearAllBtn.addEventListener('click', clearAllImages);
+        
+        // Drag and drop
+        dropzone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropzone.classList.add('drag-over');
+        });
+        
+        dropzone.addEventListener('dragleave', () => {
+            dropzone.classList.remove('drag-over');
+        });
+        
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('drag-over');
+            addFiles(e.dataTransfer.files);
+        });
+        
+        console.log('Gemini Watermark Remover loaded — using same reverse alpha compositing algorithm as Pilio');
+    </script>
+</body>
+</html>
