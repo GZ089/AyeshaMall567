@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=0.5">
+    <title>Admin · AyeshaMall Payments</title>
+    <meta name="description" content="Admin panel for AyeshaMall coin transactions">
+    <!-- Tailwind + Font Awesome -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="shortcut icon" href="logo (1).png" type="image/x-icon">
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <style>
+        body {
+            background: #0b0b12;
+            color: #e5e7eb;
+        }
+        .glass-panel {
+            background: rgba(20, 20, 35, 0.65);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .admin-nav {
+            background: rgba(10, 10, 20, 0.8);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid rgba(167, 139, 250, 0.3);
+        }
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        .status-pending { background: #b45309; color: #ffedd5; }
+        .status-approved { background: #166534; color: #dcfce7; }
+        .status-rejected { background: #991b1b; color: #fee2e2; }
+        .table-row-hover:hover { background: rgba(255,255,255,0.03); }
+        .action-btn {
+            transition: all 0.15s;
+        }
+        .modal-overlay {
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(8px);
+        }
+        .detail-modal {
+            background: rgba(30,30,45,0.95);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .auth-modal {
+            background: rgba(20, 20, 35, 0.98);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(167, 139, 250, 0.3);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+        .input-field {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 12px 16px;
+            color: white;
+            transition: all 0.2s;
+        }
+        .input-field:focus {
+            outline: none;
+            border-color: #818cf8;
+            background: rgba(255, 255, 255, 0.08);
+            box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.1);
+        }
+        .input-field::placeholder {
+            color: rgba(255, 255, 255, 0.4);
+        }
+        .tab-btn {
+            position: relative;
+            padding-bottom: 8px;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+        .tab-btn.active {
+            color: #a78bfa;
+        }
+        .tab-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(to right, #818cf8, #a78bfa);
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body class="font-sans antialiased min-h-screen flex flex-col">
+
+    <!-- AUTH MODAL (Login/Signup) -->
+    <div id="authModal" class="fixed inset-0 z-50 flex items-center justify-center modal-overlay transition-all">
+        <div class="auth-modal w-full max-w-md mx-4 rounded-3xl shadow-2xl overflow-hidden">
+            <!-- Logo Header -->
+            <div class="p-6 pb-4 text-center">
+                <div class="w-16 h-16 mx-auto bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg mb-4">
+                    <img src="logo (1).png" alt="Logo" class="w-10 h-10 object-contain">
+                </div>
+                <h2 class="text-2xl font-bold bg-gradient-to-r from-indigo-300 to-purple-300 bg-clip-text text-transparent">AyeshaMall Admin</h2>
+                <p class="text-sm text-gray-400 mt-1">Secure access to payment dashboard</p>
+            </div>
+
+            <!-- Tabs -->
+            <div class="flex border-b border-white/10 px-6">
+                <button id="loginTab" class="tab-btn active flex-1 text-center py-3 text-gray-300 hover:text-white">
+                    <i class="fas fa-sign-in-alt mr-2"></i>Login
+                </button>
+                <button id="signupTab" class="tab-btn flex-1 text-center py-3 text-gray-300 hover:text-white">
+                    <i class="fas fa-user-plus mr-2"></i>Sign Up
+                </button>
+            </div>
+
+            <!-- Login Form -->
+            <form id="loginForm" class="p-6 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">
+                        <i class="fas fa-envelope mr-2 text-indigo-400"></i>Email Address
+                    </label>
+                    <input type="email" id="loginEmail" class="input-field w-full" placeholder="admin@example.com" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">
+                        <i class="fas fa-lock mr-2 text-indigo-400"></i>Password
+                    </label>
+                    <input type="password" id="loginPassword" class="input-field w-full" placeholder="••••••••" required>
+                </div>
+                <button type="submit" class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold py-3 px-4 rounded-xl transition-all duration-200 shadow-lg hover:shadow-indigo-500/25 mt-6">
+                    <i class="fas fa-sign-in-alt mr-2"></i>Login to Dashboard
+                </button>
+            </form>
+
+            <!-- Signup Form -->
+            <form id="signupForm" class="p-6 space-y-4 hidden">
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">
+                        <i class="fas fa-envelope mr-2 text-indigo-400"></i>Email Address
+                    </label>
+                    <input type="email" id="signupEmail" class="input-field w-full" placeholder="admin@example.com" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">
+                        <i class="fas fa-lock mr-2 text-indigo-400"></i>Password
+                    </label>
+                    <input type="password" id="signupPassword" class="input-field w-full" placeholder="At least 6 characters" minlength="6" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">
+                        <i class="fas fa-check-circle mr-2 text-indigo-400"></i>Confirm Password
+                    </label>
+                    <input type="password" id="signupConfirmPassword" class="input-field w-full" placeholder="Confirm password" minlength="6" required>
+                </div>
+                <button type="submit" class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold py-3 px-4 rounded-xl transition-all duration-200 shadow-lg hover:shadow-indigo-500/25 mt-6">
+                    <i class="fas fa-user-plus mr-2"></i>Create Account
+                </button>
+            </form>
+
+            <!-- Divider -->
+            <div class="relative px-6 py-2">
+                <div class="absolute inset-0 flex items-center px-6">
+                    <div class="w-full border-t border-white/10"></div>
+                </div>
+                <div class="relative flex justify-center text-xs">
+                    <span class="bg-[#141423] px-3 text-gray-500">Protected by Firebase</span>
+                </div>
+            </div>
+
+            <!-- Auth Error Display -->
+            <div id="authError" class="hidden mx-6 mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-300 text-sm"></div>
+
+            <!-- Footer -->
+            <div class="px-6 pb-6 text-center">
+                <p class="text-xs text-gray-500">
+                    <i class="fas fa-shield-alt mr-1"></i>
+                    Admin access restricted to authorized personnel
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN DASHBOARD (Hidden until authenticated) -->
+    <div id="dashboardContent" class="hidden flex flex-col flex-grow">
+        <!-- NAVBAR -->
+        <nav class="admin-nav sticky top-0 z-30 shadow-lg">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center h-16 md:h-20">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow">
+                            <img src="logo (1).png" alt="Logo" class="w-7 h-7 object-contain">
+                        </div>
+                        <div>
+                            <h1 class="text-xl font-bold bg-gradient-to-r from-indigo-300 to-purple-300 bg-clip-text text-transparent">AyeshaMall</h1>
+                            <p class="text-xs text-indigo-300/80 tracking-wide">Admin · Payment Control</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <span id="adminEmailDisplay" class="text-sm bg-white/10 px-4 py-2 rounded-full border border-white/10 text-gray-300"></span>
+                        <button id="logoutBtn" class="bg-white/10 border border-white/20 text-indigo-200 px-5 py-2 rounded-full text-sm font-semibold hover:bg-white/20 transition flex items-center gap-2"><i class="fas fa-sign-out-alt"></i> Logout</button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- MAIN CONTENT -->
+        <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 py-8">
+            <!-- Header + filters -->
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                <h2 class="text-2xl font-bold text-white flex items-center gap-2"><i class="fas fa-credit-card text-indigo-400"></i> Coin Transactions</h2>
+                <div class="flex flex-wrap gap-2">
+                    <div class="flex bg-white/5 rounded-xl p-1 border border-white/10">
+                        <button data-filter="all" class="filter-btn px-4 py-1.5 rounded-lg text-sm font-medium transition bg-indigo-600 text-white shadow">All</button>
+                        <button data-filter="pending" class="filter-btn px-4 py-1.5 rounded-lg text-sm font-medium transition text-gray-300 hover:bg-white/10">Pending</button>
+                        <button data-filter="approved" class="filter-btn px-4 py-1.5 rounded-lg text-sm font-medium transition text-gray-300 hover:bg-white/10">Approved</button>
+                        <button data-filter="rejected" class="filter-btn px-4 py-1.5 rounded-lg text-sm font-medium transition text-gray-300 hover:bg-white/10">Rejected</button>
+                    </div>
+                    <button id="refreshBtn" class="bg-white/10 border border-white/20 px-4 py-2 rounded-xl text-sm hover:bg-white/20 transition"><i class="fas fa-sync-alt mr-1"></i> Refresh</button>
+                </div>
+            </div>
+
+            <!-- Table container -->
+            <div class="glass-panel rounded-2xl overflow-hidden shadow-2xl border border-white/10">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left">
+                        <thead class="text-xs uppercase bg-black/30 text-indigo-200 border-b border-white/10">
+                            <tr>
+                                <th class="px-5 py-4">Transaction ID</th>
+                                <th class="px-5 py-4">User</th>
+                                <th class="px-5 py-4">Package</th>
+                                <th class="px-5 py-4">Amount</th>
+                                <th class="px-5 py-4">Status</th>
+                                <th class="px-5 py-4">Date</th>
+                                <th class="px-5 py-4">Screenshot</th>
+                                <th class="px-5 py-4 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transactionsTableBody" class="divide-y divide-white/5">
+                            <!-- skeleton loading -->
+                            <tr><td colspan="8" class="p-8 text-center"><div class="flex justify-center"><div class="w-8 h-8 border-2 border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin"></div></div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <!-- Empty state message -->
+                <div id="emptyState" class="hidden py-16 text-center text-gray-400">
+                    <i class="fas fa-inbox text-4xl mb-3 opacity-40"></i>
+                    <p>No transactions found.</p>
+                </div>
+            </div>
+
+            <!-- Legend / info -->
+            <div class="mt-4 text-xs text-gray-400 flex items-center gap-4">
+                <span><i class="fas fa-circle-check text-green-500 mr-1"></i> Approve adds coins (30d expiry)</span>
+                <span><i class="fas fa-clock text-yellow-500 mr-1"></i> Auto-approved by AI are marked</span>
+            </div>
+        </main>
+    </div>
+
+    <!-- SCREENSHOT MODAL -->
+    <div id="screenshotModal" class="fixed inset-0 z-50 hidden items-center justify-center modal-overlay transition-all">
+        <div class="detail-modal max-w-2xl w-full mx-4 rounded-2xl shadow-2xl p-1">
+            <div class="p-4 flex justify-between items-center border-b border-white/10">
+                <h3 class="font-semibold text-white flex items-center gap-2"><i class="fas fa-image text-indigo-300"></i> Payment Screenshot</h3>
+                <button id="closeScreenshotModal" class="text-gray-400 hover:text-white text-xl">&times;</button>
+            </div>
+            <div class="p-4 flex justify-center">
+                <img id="modalScreenshotImage" src="" alt="Screenshot" class="max-h-[70vh] rounded-lg border border-white/20 object-contain">
+            </div>
+        </div>
+    </div>
+
+    <!-- DETAILS MODAL (New) -->
+    <div id="detailsModal" class="fixed inset-0 z-50 hidden items-center justify-center modal-overlay transition-all">
+        <div class="detail-modal max-w-2xl w-full mx-4 rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div class="p-5 flex justify-between items-center border-b border-white/10">
+                <h3 class="font-semibold text-white text-lg flex items-center gap-2">
+                    <i class="fas fa-info-circle text-indigo-300"></i> Transaction Details
+                </h3>
+                <button id="closeDetailsModalBtn" class="text-gray-400 hover:text-white text-xl">&times;</button>
+            </div>
+            
+            <div class="p-6 space-y-5">
+                <!-- Transaction ID (readonly) -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-400 mb-2">
+                        <i class="fas fa-hashtag mr-2 text-indigo-400 w-4"></i>Transaction ID
+                    </label>
+                    <input type="text" id="detailTransactionId" class="input-field w-full bg-white/5" readonly disabled>
+                </div>
+                
+                <!-- User Email (editable) -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-400 mb-2">
+                        <i class="fas fa-envelope mr-2 text-indigo-400 w-4"></i>User Email
+                    </label>
+                    <input type="email" id="detailUserEmail" class="input-field w-full" placeholder="user@example.com">
+                </div>
+                
+                <!-- User ID (readonly) -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-400 mb-2">
+                        <i class="fas fa-id-card mr-2 text-indigo-400 w-4"></i>User ID
+                    </label>
+                    <input type="text" id="detailUserId" class="input-field w-full bg-white/5" readonly disabled>
+                </div>
+                
+                <!-- Grid: Coins & Amount -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-400 mb-2">
+                            <i class="fas fa-coins mr-2 text-indigo-400 w-4"></i>Coins Amount
+                        </label>
+                        <input type="number" id="detailCoins" class="input-field w-full" min="0" step="1" placeholder="e.g., 100">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-400 mb-2">
+                            <i class="fas fa-money-bill mr-2 text-indigo-400 w-4"></i>Amount (PKR)
+                        </label>
+                        <input type="number" id="detailAmountPKR" class="input-field w-full" min="0" step="1" placeholder="e.g., 500">
+                    </div>
+                </div>
+                
+                <!-- Status -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-400 mb-2">
+                        <i class="fas fa-tag mr-2 text-indigo-400 w-4"></i>Status
+                    </label>
+                    <select id="detailStatus" class="input-field w-full">
+                        <option value="pending">Pending</option>
+                        <option value="approved">Approved</option>
+                        <option value="rejected">Rejected</option>
+                    </select>
+                </div>
+                
+                <!-- Screenshot Preview -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-400 mb-2">
+                        <i class="fas fa-image mr-2 text-indigo-400 w-4"></i>Screenshot
+                    </label>
+                    <div class="bg-black/30 rounded-xl p-3 border border-white/10 flex items-center justify-center">
+                        <img id="detailScreenshotPreview" src="" alt="Screenshot" class="max-h-40 rounded-lg object-contain cursor-pointer hover:opacity-80 transition" onclick="document.getElementById('detailScreenshotPreview').click()">
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">Click image to view full size</p>
+                </div>
+                
+                <!-- Approval Type & Timestamps -->
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 mb-1">Approval Type</label>
+                        <input type="text" id="detailApprovalType" class="input-field w-full bg-white/5" readonly disabled>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-500 mb-1">Created At</label>
+                        <input type="text" id="detailCreatedAt" class="input-field w-full bg-white/5" readonly disabled>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Action Buttons -->
+            <div class="p-5 border-t border-white/10 flex flex-wrap gap-3 justify-end">
+                <button id="detailUpdateCoinsBtn" class="px-5 py-2.5 bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 rounded-xl text-sm font-medium border border-indigo-500/30 transition flex items-center gap-2">
+                    <i class="fas fa-plus-circle"></i> Update Coins Only
+                </button>
+                <button id="detailSaveChangesBtn" class="px-5 py-2.5 bg-purple-600/20 hover:bg-purple-600/40 text-purple-300 rounded-xl text-sm font-medium border border-purple-500/30 transition flex items-center gap-2">
+                    <i class="fas fa-save"></i> Save All Changes
+                </button>
+                <button id="detailApproveBtn" class="px-5 py-2.5 bg-green-600/20 hover:bg-green-600/40 text-green-300 rounded-xl text-sm font-medium border border-green-500/30 transition flex items-center gap-2">
+                    <i class="fas fa-check"></i> Approve
+                </button>
+                <button id="detailRejectBtn" class="px-5 py-2.5 bg-red-600/20 hover:bg-red-600/40 text-red-300 rounded-xl text-sm font-medium border border-red-500/30 transition flex items-center gap-2">
+                    <i class="fas fa-times"></i> Reject
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST CONTAINER -->
+    <div class="fixed top-20 right-4 z-50 space-y-3 w-80" id="toastContainer"></div>
+
+    <!-- LOADER OVERLAY (global) -->
+    <div id="globalLoader" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div class="bg-gray-900/90 backdrop-blur-xl rounded-3xl p-8 shadow-2xl flex flex-col items-center border border-white/20">
+            <div class="w-12 h-12 border-3 border-indigo-500/30 border-t-indigo-400 rounded-full animate-spin"></div>
+            <p class="mt-4 text-white font-medium" id="loaderText">Processing...</p>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            // --- FIREBASE CONFIG ---
+            const firebaseConfig = {
+                apiKey: "AIzaSyD78wa9P1xdo030OSnNdbxzN_3IUh8NdCU",
+                authDomain: "doorstep-3ee75.firebaseapp.com",
+                projectId: "doorstep-3ee75",
+                storageBucket: "doorstep-3ee75.firebasestorage.app",
+                messagingSenderId: "986043366341",
+                appId: "1:986043366341:web:96af99833288c54b11a9ac"
+            };
+            firebase.initializeApp(firebaseConfig);
+            const auth = firebase.auth();
+            const db = firebase.firestore();
+
+            // --- ADMIN CONFIG ---
+            const ADMIN_EMAILS = ['buykiamarketplace@gmail.com', 'ayeshamall@gmail.com', 'pakrozgarhub@gmail.com']; 
+            
+            // --- DOM elements ---
+            const authModal = document.getElementById('authModal');
+            const dashboardContent = document.getElementById('dashboardContent');
+            const loginForm = document.getElementById('loginForm');
+            const signupForm = document.getElementById('signupForm');
+            const loginTab = document.getElementById('loginTab');
+            const signupTab = document.getElementById('signupTab');
+            const authError = document.getElementById('authError');
+            const tbody = document.getElementById('transactionsTableBody');
+            const emptyState = document.getElementById('emptyState');
+            const adminEmailDisplay = document.getElementById('adminEmailDisplay');
+            const logoutBtn = document.getElementById('logoutBtn');
+            const refreshBtn = document.getElementById('refreshBtn');
+            const filterBtns = document.querySelectorAll('.filter-btn');
+            const screenshotModal = document.getElementById('screenshotModal');
+            const modalScreenshotImage = document.getElementById('modalScreenshotImage');
+            const closeScreenshotModal = document.getElementById('closeScreenshotModal');
+            const detailsModal = document.getElementById('detailsModal');
+            const closeDetailsModalBtn = document.getElementById('closeDetailsModalBtn');
+            const globalLoader = document.getElementById('globalLoader');
+            const loaderText = document.getElementById('loaderText');
+            const toastContainer = document.getElementById('toastContainer');
+
+            // Detail modal elements
+            const detailTransactionId = document.getElementById('detailTransactionId');
+            const detailUserEmail = document.getElementById('detailUserEmail');
+            const detailUserId = document.getElementById('detailUserId');
+            const detailCoins = document.getElementById('detailCoins');
+            const detailAmountPKR = document.getElementById('detailAmountPKR');
+            const detailStatus = document.getElementById('detailStatus');
+            const detailScreenshotPreview = document.getElementById('detailScreenshotPreview');
+            const detailApprovalType = document.getElementById('detailApprovalType');
+            const detailCreatedAt = document.getElementById('detailCreatedAt');
+            
+            // Buttons
+            const detailUpdateCoinsBtn = document.getElementById('detailUpdateCoinsBtn');
+            const detailSaveChangesBtn = document.getElementById('detailSaveChangesBtn');
+            const detailApproveBtn = document.getElementById('detailApproveBtn');
+            const detailRejectBtn = document.getElementById('detailRejectBtn');
+
+            let currentUser = null;
+            let currentFilter = 'all';
+            let unsubscribe = null;
+            let allTransactions = [];
+            let currentDetailDocId = null;
+            let currentDetailData = null;
+            let currentUserCoins = 0; // To store current user coins when updating
+
+            // --- Helper: Toast ---
+            function showToast(msg, type = 'success') {
+                const t = document.createElement('div');
+                t.className = `toast border-l-4 ${type === 'error' ? 'border-red-500' : type === 'warning' ? 'border-yellow-400' : 'border-green-500'} shadow-xl rounded-xl p-3 flex items-start gap-3 bg-gray-900/90 backdrop-blur-md text-white`;
+                t.innerHTML = `<i class="fas ${type === 'error' ? 'fa-circle-exclamation text-red-400' : type === 'warning' ? 'fa-triangle-exclamation text-yellow-400' : 'fa-circle-check text-green-400'}"></i><div class="flex-1 text-sm">${msg}</div><button class="text-gray-400 hover:text-gray-200" onclick="this.parentElement.remove()"><i class="fas fa-times"></i></button>`;
+                toastContainer.appendChild(t);
+                setTimeout(() => t.remove(), 5000);
+            }
+
+            function showLoader(text = 'Processing...') {
+                loaderText.innerText = text;
+                globalLoader.classList.remove('hidden');
+            }
+            function hideLoader() { globalLoader.classList.add('hidden'); }
+
+            function showAuthError(msg) {
+                authError.textContent = msg;
+                authError.classList.remove('hidden');
+            }
+            function hideAuthError() {
+                authError.classList.add('hidden');
+            }
+
+            // --- Tab switching ---
+            loginTab.addEventListener('click', () => {
+                loginTab.classList.add('active');
+                signupTab.classList.remove('active');
+                loginForm.classList.remove('hidden');
+                signupForm.classList.add('hidden');
+                hideAuthError();
+            });
+
+            signupTab.addEventListener('click', () => {
+                signupTab.classList.add('active');
+                loginTab.classList.remove('active');
+                signupForm.classList.remove('hidden');
+                loginForm.classList.add('hidden');
+                hideAuthError();
+            });
+
+            // --- Login handler ---
+            loginForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                hideAuthError();
+                const email = document.getElementById('loginEmail').value.trim();
+                const password = document.getElementById('loginPassword').value;
+
+                try {
+                    showLoader('Authenticating...');
+                    const userCredential = await auth.signInWithEmailAndPassword(email, password);
+                    const user = userCredential.user;
+                    
+                    const isAdmin = ADMIN_EMAILS.some(adminEmail => adminEmail.toLowerCase() === user.email.toLowerCase());
+                    if (!isAdmin) {
+                        await auth.signOut();
+                        showToast('Access denied: Admin only', 'error');
+                        showAuthError('This account does not have admin privileges.');
+                        hideLoader();
+                        return;
+                    }
+                    
+                    hideLoader();
+                    showToast('Welcome back, Admin!', 'success');
+                } catch (error) {
+                    hideLoader();
+                    let errorMsg = 'Login failed. Please try again.';
+                    if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+                        errorMsg = 'Invalid email or password.';
+                    } else if (error.code === 'auth/invalid-email') {
+                        errorMsg = 'Please enter a valid email address.';
+                    } else if (error.code === 'auth/too-many-requests') {
+                        errorMsg = 'Too many failed attempts. Please try again later.';
+                    }
+                    showAuthError(errorMsg);
+                    showToast(errorMsg, 'error');
+                }
+            });
+
+            // --- Signup handler ---
+            signupForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                hideAuthError();
+                const email = document.getElementById('signupEmail').value.trim();
+                const password = document.getElementById('signupPassword').value;
+                const confirmPassword = document.getElementById('signupConfirmPassword').value;
+
+                if (password !== confirmPassword) {
+                    showAuthError('Passwords do not match.');
+                    return;
+                }
+
+                if (password.length < 6) {
+                    showAuthError('Password must be at least 6 characters.');
+                    return;
+                }
+
+                try {
+                    showLoader('Creating account...');
+                    const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                    const user = userCredential.user;
+                    
+                    const isAdmin = ADMIN_EMAILS.some(adminEmail => adminEmail.toLowerCase() === user.email.toLowerCase());
+                    if (!isAdmin) {
+                        await auth.signOut();
+                        showToast('This email is not authorized for admin access.', 'error');
+                        showAuthError('This email is not on the admin whitelist.');
+                        hideLoader();
+                        return;
+                    }
+                    
+                    hideLoader();
+                    showToast('Account created! You are now logged in.', 'success');
+                } catch (error) {
+                    hideLoader();
+                    let errorMsg = 'Signup failed. Please try again.';
+                    if (error.code === 'auth/email-already-in-use') {
+                        errorMsg = 'This email is already registered. Please login instead.';
+                    } else if (error.code === 'auth/invalid-email') {
+                        errorMsg = 'Please enter a valid email address.';
+                    } else if (error.code === 'auth/weak-password') {
+                        errorMsg = 'Password is too weak. Please use a stronger password.';
+                    }
+                    showAuthError(errorMsg);
+                    showToast(errorMsg, 'error');
+                }
+            });
+
+            // --- Format date ---
+            function formatDate(timestamp) {
+                if (!timestamp) return '—';
+                let date;
+                if (timestamp.toDate) date = timestamp.toDate();
+                else if (timestamp instanceof Date) date = timestamp;
+                else date = new Date(timestamp);
+                if (isNaN(date.getTime())) return 'Invalid date';
+                const day = date.getDate();
+                const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+                const month = monthNames[date.getMonth()];
+                const year = date.getFullYear();
+                return `${day}-${month}-${year}`;
+            }
+
+            // --- Add coins to user shop ---
+            async function addCoinsToUser(userId, coinAmount) {
+                const shopRef = db.collection('shops').doc(userId);
+                const shopDoc = await shopRef.get();
+                const now = new Date();
+                if (shopDoc.exists) {
+                    const data = shopDoc.data();
+                    const currentCoins = data.coins || 0;
+                    let currentExpiry = data.coinExpiry ? data.coinExpiry.toDate() : null;
+                    let baseDate = (currentExpiry && currentExpiry > now) ? currentExpiry : now;
+                    const newExpiry = new Date(baseDate);
+                    newExpiry.setDate(newExpiry.getDate() + 30);
+                    await shopRef.update({
+                        coins: currentCoins + coinAmount,
+                        coinExpiry: firebase.firestore.Timestamp.fromDate(newExpiry)
+                    });
+                } else {
+                    const newExpiry = new Date();
+                    newExpiry.setDate(newExpiry.getDate() + 30);
+                    await shopRef.set({
+                        coins: coinAmount,
+                        coinExpiry: firebase.firestore.Timestamp.fromDate(newExpiry),
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                }
+            }
+
+            // --- Fetch current user coins ---
+            async function fetchUserCoins(userId) {
+                try {
+                    const shopRef = db.collection('shops').doc(userId);
+                    const shopDoc = await shopRef.get();
+                    if (shopDoc.exists) {
+                        return shopDoc.data().coins || 0;
+                    }
+                    return 0;
+                } catch (err) {
+                    console.error('Error fetching user coins:', err);
+                    return 0;
+                }
+            }
+
+            // --- Update coins only (difference) ---
+            async function updateCoinsDifference(userId, oldCoins, newCoins) {
+                const diff = newCoins - oldCoins;
+                if (diff === 0) return;
+                
+                const shopRef = db.collection('shops').doc(userId);
+                const shopDoc = await shopRef.get();
+                const now = new Date();
+                
+                if (shopDoc.exists) {
+                    const data = shopDoc.data();
+                    const currentCoins = data.coins || 0;
+                    let currentExpiry = data.coinExpiry ? data.coinExpiry.toDate() : null;
+                    let baseDate = (currentExpiry && currentExpiry > now) ? currentExpiry : now;
+                    const newExpiry = new Date(baseDate);
+                    newExpiry.setDate(newExpiry.getDate() + 30);
+                    
+                    await shopRef.update({
+                        coins: Math.max(0, currentCoins + diff),
+                        coinExpiry: firebase.firestore.Timestamp.fromDate(newExpiry)
+                    });
+                } else {
+                    // If shop doesn't exist, create with new coins
+                    const newExpiry = new Date();
+                    newExpiry.setDate(newExpiry.getDate() + 30);
+                    await shopRef.set({
+                        coins: Math.max(0, newCoins),
+                        coinExpiry: firebase.firestore.Timestamp.fromDate(newExpiry),
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                }
+            }
+
+            // --- Open details modal ---
+            function openDetailsModal(docId, data) {
+                currentDetailDocId = docId;
+                currentDetailData = data;
+                
+                // Populate fields
+                detailTransactionId.value = data.transactionId || docId;
+                detailUserEmail.value = data.userEmail || '';
+                detailUserId.value = data.userId || '';
+                detailCoins.value = data.coinPackage || data.coinAmount || 0;
+                detailAmountPKR.value = data.amountPKR || 0;
+                detailStatus.value = data.status || 'pending';
+                detailApprovalType.value = data.approvalType || 'manual';
+                
+                // Date
+                if (data.createdAt) {
+                    let date = data.createdAt.toDate ? data.createdAt.toDate() : new Date(data.createdAt);
+                    detailCreatedAt.value = date.toLocaleString();
+                } else {
+                    detailCreatedAt.value = '—';
+                }
+                
+                // Screenshot preview
+                if (data.screenshotBase64) {
+                    detailScreenshotPreview.src = data.screenshotBase64;
+                    detailScreenshotPreview.onclick = () => {
+                        modalScreenshotImage.src = data.screenshotBase64;
+                        screenshotModal.classList.remove('hidden');
+                        screenshotModal.classList.add('flex');
+                    };
+                } else {
+                    detailScreenshotPreview.src = '';
+                    detailScreenshotPreview.onclick = null;
+                }
+                
+                detailsModal.classList.remove('hidden');
+                detailsModal.classList.add('flex');
+            }
+
+            // --- Close details modal ---
+            function closeDetailsModal() {
+                detailsModal.classList.add('hidden');
+                detailsModal.classList.remove('flex');
+                currentDetailDocId = null;
+                currentDetailData = null;
+            }
+
+            // --- Save all changes from modal ---
+            async function saveAllChanges() {
+                if (!currentDetailDocId) return;
+                
+                const newEmail = detailUserEmail.value.trim();
+                const newCoins = parseInt(detailCoins.value) || 0;
+                const newAmount = parseInt(detailAmountPKR.value) || 0;
+                const newStatus = detailStatus.value;
+                const oldCoins = currentDetailData.coinPackage || currentDetailData.coinAmount || 0;
+                const oldStatus = currentDetailData.status;
+                const userId = detailUserId.value;
+                
+                try {
+                    showLoader('Saving changes...');
+                    
+                    const updates = {
+                        userEmail: newEmail,
+                        coinPackage: newCoins,
+                        coinAmount: newCoins,
+                        amountPKR: newAmount,
+                        status: newStatus,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    };
+                    
+                    // If status changed to approved and wasn't before, add coins
+                    if (newStatus === 'approved' && oldStatus !== 'approved') {
+                        await addCoinsToUser(userId, newCoins);
+                        updates.approvedAt = firebase.firestore.FieldValue.serverTimestamp();
+                        updates.approvalType = 'manual-admin';
+                        updates.coinsCredited = true;
+                    } 
+                    // If status changed from approved to something else, we don't remove coins (policy)
+                    // But if coins amount changed while approved, adjust difference
+                    else if (newStatus === 'approved' && oldStatus === 'approved' && newCoins !== oldCoins) {
+                        await updateCoinsDifference(userId, oldCoins, newCoins);
+                        updates.coinsCredited = true;
+                    }
+                    // If status is not approved but coins changed, just update the record
+                    
+                    await db.collection('coinPayments').doc(currentDetailDocId).update(updates);
+                    
+                    hideLoader();
+                    showToast('Changes saved successfully!', 'success');
+                    closeDetailsModal();
+                } catch (err) {
+                    hideLoader();
+                    showToast('Error saving changes: ' + err.message, 'error');
+                }
+            }
+
+            // --- Update coins only (from modal) ---
+            async function updateCoinsOnly() {
+                if (!currentDetailDocId) return;
+                
+                const newCoins = parseInt(detailCoins.value) || 0;
+                const oldCoins = currentDetailData.coinPackage || currentDetailData.coinAmount || 0;
+                const userId = detailUserId.value;
+                const currentStatus = detailStatus.value;
+                
+                if (newCoins === oldCoins) {
+                    showToast('Coin amount is unchanged.', 'warning');
+                    return;
+                }
+                
+                if (!confirm(`Update coins from ${oldCoins} to ${newCoins}? This will ${newCoins > oldCoins ? 'add' : 'remove'} ${Math.abs(newCoins - oldCoins)} coins to/from user balance.`)) {
+                    return;
+                }
+                
+                try {
+                    showLoader('Updating coins...');
+                    
+                    // Update the transaction record
+                    await db.collection('coinPayments').doc(currentDetailDocId).update({
+                        coinPackage: newCoins,
+                        coinAmount: newCoins,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    
+                    // If status is approved, adjust user's coin balance
+                    if (currentStatus === 'approved') {
+                        await updateCoinsDifference(userId, oldCoins, newCoins);
+                    }
+                    
+                    hideLoader();
+                    showToast(`Coins updated from ${oldCoins} to ${newCoins}!`, 'success');
+                    
+                    // Update current data
+                    currentDetailData.coinPackage = newCoins;
+                    currentDetailData.coinAmount = newCoins;
+                    
+                    // Don't close modal, just update
+                } catch (err) {
+                    hideLoader();
+                    showToast('Error updating coins: ' + err.message, 'error');
+                }
+            }
+
+            // --- Quick approve from modal ---
+            async function quickApprove() {
+                if (!currentDetailDocId) return;
+                
+                const coins = parseInt(detailCoins.value) || 0;
+                const userId = detailUserId.value;
+                const currentStatus = detailStatus.value;
+                
+                if (currentStatus === 'approved') {
+                    showToast('Transaction is already approved.', 'warning');
+                    return;
+                }
+                
+                if (!confirm(`Approve transaction and add ${coins} coins to user?`)) return;
+                
+                try {
+                    showLoader('Approving...');
+                    
+                    await addCoinsToUser(userId, coins);
+                    
+                    await db.collection('coinPayments').doc(currentDetailDocId).update({
+                        status: 'approved',
+                        approvedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        approvalType: 'manual-admin',
+                        coinsCredited: true,
+                        coinPackage: coins,
+                        coinAmount: coins
+                    });
+                    
+                    hideLoader();
+                    showToast(`✅ Approved! ${coins} coins added.`, 'success');
+                    
+                    detailStatus.value = 'approved';
+                    currentDetailData.status = 'approved';
+                } catch (err) {
+                    hideLoader();
+                    showToast('Error: ' + err.message, 'error');
+                }
+            }
+
+            // --- Quick reject from modal ---
+            async function quickReject() {
+                if (!currentDetailDocId) return;
+                
+                const currentStatus = detailStatus.value;
+                
+                if (currentStatus === 'rejected') {
+                    showToast('Transaction is already rejected.', 'warning');
+                    return;
+                }
+                
+                if (!confirm('Reject this transaction?')) return;
+                
+                try {
+                    showLoader('Rejecting...');
+                    
+                    await db.collection('coinPayments').doc(currentDetailDocId).update({
+                        status: 'rejected',
+                        rejectedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    
+                    hideLoader();
+                    showToast('Transaction rejected.', 'warning');
+                    
+                    detailStatus.value = 'rejected';
+                    currentDetailData.status = 'rejected';
+                } catch (err) {
+                    hideLoader();
+                    showToast('Error: ' + err.message, 'error');
+                }
+            }
+
+            // --- Update payment status (from table actions) ---
+            async function updatePaymentStatus(docId, newStatus, coinAmount, userId, currentStatus) {
+                try {
+                    const paymentRef = db.collection('coinPayments').doc(docId);
+                    if (newStatus === 'approved' && currentStatus !== 'approved') {
+                        showLoader('Approving & crediting coins...');
+                        await addCoinsToUser(userId, coinAmount);
+                        await paymentRef.update({
+                            status: 'approved',
+                            approvedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                            approvalType: 'manual-admin',
+                            coinsCredited: true
+                        });
+                        showToast(`✅ Approved! ${coinAmount} coins added.`, 'success');
+                    } else if (newStatus === 'rejected') {
+                        await paymentRef.update({
+                            status: 'rejected',
+                            rejectedAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                        showToast('Transaction rejected.', 'warning');
+                    } else {
+                        await paymentRef.update({ status: newStatus });
+                        showToast(`Status updated to ${newStatus}.`, 'success');
+                    }
+                    hideLoader();
+                } catch (err) {
+                    hideLoader();
+                    showToast('Error: ' + err.message, 'error');
+                }
+            }
+
+            // --- Render table ---
+            function renderTransactions(transactions) {
+                if (!transactions || transactions.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-gray-400">No transactions match filter.</td></tr>`;
+                    emptyState.classList.remove('hidden');
+                    return;
+                }
+                emptyState.classList.add('hidden');
+                let html = '';
+                transactions.forEach(doc => {
+                    const data = doc.data();
+                    const docId = doc.id;
+                    const trxId = data.transactionId || '—';
+                    const userEmail = data.userEmail || 'unknown';
+                    const coinAmount = data.coinPackage || data.coinAmount || 0;
+                    const amountPKR = data.amountPKR || '?';
+                    const status = data.status || 'pending';
+                    const createdAt = data.createdAt;
+                    const screenshot = data.screenshotBase64 || null;
+                    const userId = data.userId;
+                    const approvalType = data.approvalType || '';
+                    
+                    let badgeClass = 'status-pending';
+                    if (status === 'approved') badgeClass = 'status-approved';
+                    else if (status === 'rejected') badgeClass = 'status-rejected';
+                    
+                    const dateFormatted = formatDate(createdAt);
+                    
+                    html += `<tr class="table-row-hover border-b border-white/5 transition">`;
+                    html += `<td class="px-5 py-4 font-mono text-xs text-indigo-200">${trxId}</td>`;
+                    html += `<td class="px-5 py-4 text-gray-300 max-w-[180px] truncate" title="${userEmail}">${userEmail}</td>`;
+                    html += `<td class="px-5 py-4 font-semibold">${coinAmount} coins</td>`;
+                    html += `<td class="px-5 py-4">₨ ${amountPKR}</td>`;
+                    html += `<td class="px-5 py-4"><span class="status-badge ${badgeClass}">${status}${approvalType === 'auto-ai' && status==='approved' ? ' (AI)' : ''}</span></td>`;
+                    html += `<td class="px-5 py-4 text-gray-400">${dateFormatted}</td>`;
+                    html += `<td class="px-5 py-4">`;
+                    if (screenshot) {
+                        html += `<button data-screenshot="${screenshot}" class="view-screenshot-btn text-indigo-400 hover:text-indigo-300 text-lg" title="View screenshot"><i class="fas fa-image"></i></button>`;
+                    } else {
+                        html += `<span class="text-gray-500">—</span>`;
+                    }
+                    html += `</td>`;
+                    html += `<td class="px-5 py-4 text-right">`;
+                    // Details button (always visible)
+                    html += `<button data-details-id="${docId}" class="view-details-btn bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 px-3 py-1.5 rounded-lg mr-2 text-xs font-medium border border-indigo-500/30"><i class="fas fa-eye mr-1"></i>Details</button>`;
+                    
+                    // Quick actions
+                    if (status !== 'approved') {
+                        html += `<button data-action="approve" data-id="${docId}" data-coins="${coinAmount}" data-user="${userId}" data-status="${status}" class="action-btn bg-green-600/20 hover:bg-green-600/40 text-green-300 px-3 py-1.5 rounded-lg mr-2 text-xs font-medium border border-green-500/30"><i class="fas fa-check"></i></button>`;
+                    }
+                    if (status !== 'rejected') {
+                        html += `<button data-action="reject" data-id="${docId}" data-coins="${coinAmount}" data-user="${userId}" data-status="${status}" class="action-btn bg-red-600/20 hover:bg-red-600/40 text-red-300 px-3 py-1.5 rounded-lg mr-2 text-xs font-medium border border-red-500/30"><i class="fas fa-times"></i></button>`;
+                    }
+                    html += `</td></tr>`;
+                });
+                tbody.innerHTML = html;
+                
+                // Attach screenshot listeners
+                document.querySelectorAll('.view-screenshot-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const screenshotData = btn.dataset.screenshot;
+                        modalScreenshotImage.src = screenshotData;
+                        screenshotModal.classList.remove('hidden');
+                        screenshotModal.classList.add('flex');
+                    });
+                });
+                
+                // Attach details listeners
+                document.querySelectorAll('.view-details-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const docId = btn.dataset.detailsId;
+                        const doc = allTransactions.find(d => d.id === docId);
+                        if (doc) {
+                            openDetailsModal(docId, doc.data());
+                        }
+                    });
+                });
+                
+                // Attach action listeners
+                document.querySelectorAll('[data-action]').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        const action = btn.dataset.action;
+                        const docId = btn.dataset.id;
+                        const coins = parseInt(btn.dataset.coins) || 0;
+                        const userId = btn.dataset.user;
+                        const currentStatus = btn.dataset.status;
+                        
+                        if (action === 'approve') {
+                            if (!confirm(`Approve transaction and add ${coins} coins to user?`)) return;
+                            await updatePaymentStatus(docId, 'approved', coins, userId, currentStatus);
+                        } else if (action === 'reject') {
+                            if (!confirm('Reject this transaction?')) return;
+                            await updatePaymentStatus(docId, 'rejected', coins, userId, currentStatus);
+                        } else if (action === 'pending') {
+                            await updatePaymentStatus(docId, 'pending', coins, userId, currentStatus);
+                        }
+                    });
+                });
+            }
+
+            // --- Filter logic ---
+            function filterTransactions() {
+                let filtered = allTransactions;
+                if (currentFilter !== 'all') {
+                    filtered = allTransactions.filter(doc => doc.data().status === currentFilter);
+                }
+                renderTransactions(filtered);
+            }
+
+            // --- Realtime listener ---
+            function setupRealtimeListener() {
+                if (unsubscribe) unsubscribe();
+                showLoader('Loading transactions...');
+                const query = db.collection('coinPayments').orderBy('createdAt', 'desc');
+                unsubscribe = query.onSnapshot((snapshot) => {
+                    hideLoader();
+                    allTransactions = [];
+                    snapshot.forEach(doc => allTransactions.push(doc));
+                    filterTransactions();
+                }, (error) => {
+                    hideLoader();
+                    showToast('Error loading transactions: ' + error.message, 'error');
+                    tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-red-400">Failed to load data.</td></tr>`;
+                });
+            }
+
+            // --- Filter button events ---
+            filterBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    filterBtns.forEach(b => { b.classList.remove('bg-indigo-600', 'text-white'); b.classList.add('text-gray-300'); });
+                    btn.classList.add('bg-indigo-600', 'text-white');
+                    btn.classList.remove('text-gray-300');
+                    currentFilter = btn.dataset.filter;
+                    filterTransactions();
+                });
+            });
+
+            // --- Modal close handlers ---
+            closeScreenshotModal.addEventListener('click', () => {
+                screenshotModal.classList.add('hidden');
+                screenshotModal.classList.remove('flex');
+            });
+            screenshotModal.addEventListener('click', (e) => {
+                if (e.target === screenshotModal) {
+                    screenshotModal.classList.add('hidden');
+                    screenshotModal.classList.remove('flex');
+                }
+            });
+            
+            closeDetailsModalBtn.addEventListener('click', closeDetailsModal);
+            detailsModal.addEventListener('click', (e) => {
+                if (e.target === detailsModal) {
+                    closeDetailsModal();
+                }
+            });
+            
+            // Screenshot preview click in modal
+            detailScreenshotPreview.addEventListener('click', () => {
+                if (detailScreenshotPreview.src) {
+                    modalScreenshotImage.src = detailScreenshotPreview.src;
+                    screenshotModal.classList.remove('hidden');
+                    screenshotModal.classList.add('flex');
+                }
+            });
+
+            // --- Detail modal button handlers ---
+            detailUpdateCoinsBtn.addEventListener('click', updateCoinsOnly);
+            detailSaveChangesBtn.addEventListener('click', saveAllChanges);
+            detailApproveBtn.addEventListener('click', quickApprove);
+            detailRejectBtn.addEventListener('click', quickReject);
+
+            // --- Refresh button ---
+            refreshBtn.addEventListener('click', () => {
+                setupRealtimeListener();
+            });
+
+            // --- Auth state observer ---
+            auth.onAuthStateChanged(async (user) => {
+                if (!user) {
+                    authModal.style.display = 'flex';
+                    dashboardContent.classList.add('hidden');
+                    if (unsubscribe) {
+                        unsubscribe();
+                        unsubscribe = null;
+                    }
+                    return;
+                }
+                
+                currentUser = user;
+                const email = user.email || '';
+                
+                const isAdmin = ADMIN_EMAILS.some(adminEmail => adminEmail.toLowerCase() === email.toLowerCase());
+                if (!isAdmin) {
+                    showToast('Access denied: Admin only', 'error');
+                    await auth.signOut();
+                    return;
+                }
+                
+                authModal.style.display = 'none';
+                dashboardContent.classList.remove('hidden');
+                adminEmailDisplay.innerText = email;
+                
+                setupRealtimeListener();
+            });
+
+            // Logout
+            logoutBtn.addEventListener('click', async () => {
+                await auth.signOut();
+                showToast('Logged out successfully', 'success');
+            });
+
+            // Cleanup on page unload
+            window.addEventListener('beforeunload', () => {
+                if (unsubscribe) unsubscribe();
+            });
+
+            // Initialize
+            authModal.style.display = 'flex';
+            dashboardContent.classList.add('hidden');
+            tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center"><div class="flex justify-center"><div class="w-8 h-8 border-2 border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin"></div></div></td></tr>`;
+        })();
+    </script>
+    <style>
+        .toast { animation: slideIn 0.2s; }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+    </style>
+</body>
+</html>
